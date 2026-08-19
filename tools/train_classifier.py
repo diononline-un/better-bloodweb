@@ -36,41 +36,62 @@ def load_icons(icons_dir: str) -> dict[str, np.ndarray]:
 
 
 def make_bg(rng: np.random.Generator) -> np.ndarray:
-    """Dunkler Bloodweb-artiger Hintergrund: Verlauf + leichte Textur."""
+    """Bloodweb-artiger Hintergrund, bewusst breit gestreut (Domain-Robustheit):
+    dunkle bis mittlere Helligkeit, Verläufe, Textur, Rauschen, Farbtints."""
     g = np.linspace(0, 1, CROP)[None, :]
     g = np.repeat(g, CROP, axis=0)
     if rng.random() < 0.5:
-        g = g.T  # mal horizontal, mal vertikal
-    base = rng.integers(10, 45)
-    amp = rng.integers(5, 35)
+        g = g.T
+    base = rng.integers(8, 95)          # absichtlich breiter als der echte Web-BG
+    amp = rng.integers(0, 40)
     gray = (base + amp * g).astype(np.float32)
-    noise = rng.normal(0, rng.uniform(2, 10), (CROP, CROP)).astype(np.float32)
+    noise = rng.normal(0, rng.uniform(2, 14), (CROP, CROP)).astype(np.float32)
     gray = np.clip(gray + noise, 0, 255)
-    # leichter Farbton (Bloodweb wirkt bräunlich/violett)
-    b = np.clip(gray * rng.uniform(0.8, 1.1), 0, 255)
-    r = np.clip(gray * rng.uniform(0.9, 1.3), 0, 255)
-    return cv2.merge([b, gray, r]).astype(np.uint8)
+    b = np.clip(gray * rng.uniform(0.75, 1.15), 0, 255)
+    gg = np.clip(gray * rng.uniform(0.75, 1.15), 0, 255)
+    r = np.clip(gray * rng.uniform(0.85, 1.35), 0, 255)
+    return cv2.merge([b, gg, r]).astype(np.uint8)
+
+
+def _draw_web_artifacts(rng: np.random.Generator, img: np.ndarray) -> np.ndarray:
+    """Node-Ring (Raritätsfarbe) + gelegentliche Verbindungslinien wie im Bloodweb."""
+    center = CROP // 2
+    if rng.random() < 0.85:  # Ring fast immer sichtbar
+        ring_colors = [(60, 40, 30), (30, 90, 40), (90, 60, 140), (140, 60, 160), (60, 30, 140)]
+        color = ring_colors[int(rng.integers(0, len(ring_colors)))]
+        radius = int(rng.integers(40, 48))
+        cv2.circle(img, (center, center), radius, color, int(rng.integers(1, 3)))
+    for _ in range(int(rng.integers(0, 3))):  # 0-2 Linien durchs Bild
+        angle = rng.uniform(0, np.pi)
+        x1 = int(center - 60 * np.cos(angle))
+        y1 = int(center - 60 * np.sin(angle))
+        x2 = int(center + 60 * np.cos(angle))
+        y2 = int(center + 60 * np.sin(angle))
+        cv2.line(img, (x1, y1), (x2, y2), (50, 40, 35), 1)
+    return img
 
 
 def synthesize(rng: np.random.Generator, rgba: np.ndarray) -> np.ndarray:
     """Icon mit Augmentation auf Hintergrund compositen -> CROPxCROP BGR."""
-    size = int(rng.integers(56, 89))  # Icon füllt 58-92% des Crops
+    size = int(rng.integers(54, 91))  # Icon füllt 56-95% des Crops
     icon = cv2.resize(rgba, (size, size))
     bg = make_bg(rng)
     # Positions-Jitter
     maxoff = CROP - size
-    y = int(rng.integers(max(1, maxoff // 2 - 6), max(2, maxoff // 2 + 6)))
-    x = int(rng.integers(max(1, maxoff // 2 - 6), max(2, maxoff // 2 + 6)))
+    y = int(rng.integers(0, max(1, maxoff + 1)))
+    x = int(rng.integers(0, max(1, maxoff + 1)))
     y = min(y, maxoff)
     x = min(x, maxoff)
     bgr = icon[:, :, :3].astype(np.float32)
     a = icon[:, :, 3:4].astype(np.float32) / 255.0
     region = bg[y : y + size, x : x + size].astype(np.float32)
     bg[y : y + size, x : x + size] = (bgr * a + region * (1 - a)).astype(np.uint8)
-    # Helligkeit/Blur-Augmentation
-    bg = cv2.convertScaleAbs(bg, alpha=rng.uniform(0.8, 1.2), beta=rng.uniform(-25, 25))
-    if rng.random() < 0.4:
-        bg = cv2.GaussianBlur(bg, (3, 3), 0)
+    bg = _draw_web_artifacts(rng, bg)
+    # Helligkeit/Kontrast/Blur breit augmentieren
+    bg = cv2.convertScaleAbs(bg, alpha=rng.uniform(0.7, 1.3), beta=rng.uniform(-35, 35))
+    if rng.random() < 0.5:
+        k = 3 if rng.random() < 0.8 else 5
+        bg = cv2.GaussianBlur(bg, (k, k), 0)
     return bg
 
 
@@ -88,13 +109,20 @@ def build_model(num_classes: int):
     )
 
 
+def normalize(gray: np.ndarray) -> np.ndarray:
+    """Per-Bild standardisieren (Mittelwert/Std) — entkoppelt von globaler Helligkeit,
+    zwingt das Netz auf Icon-Form statt Hintergrund-Statistik."""
+    gray = gray.astype(np.float32) / 255.0
+    return (gray - gray.mean()) / (gray.std() + 1e-5)
+
+
 def batch(rng, icons, names, bs):
     xs, ys = [], []
     for _ in range(bs):
         i = int(rng.integers(0, len(names)))
         img = synthesize(rng, icons[names[i]])
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-        xs.append(gray[None])
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        xs.append(normalize(gray)[None])
         ys.append(i)
     return np.stack(xs), np.array(ys)
 
