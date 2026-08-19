@@ -1,0 +1,9 @@
+# Beispiel-Profil — kopieren und anpassen.
+# tiers: -999 (nie kaufen) .. 0 (neutral) .. 999 (höchste Priorität)
+# Item-Namen = Dateinamen in assets/icons/ ohne .png
+character: example
+mode: balanced
+bp_limit: 500000
+tiers:
+  bloody-party-streamers: 10
+  escape-cake: 8
