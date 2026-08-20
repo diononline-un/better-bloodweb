@@ -48,9 +48,12 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ### Wayland: ydotool (Input)
 
 ```bash
+# Arch/CachyOS:
+sudo pacman -S ydotool
+sudo systemctl enable --now ydotool
+# Debian/Ubuntu:
 sudo apt install ydotool
-sudo usermod -aG input $USER   # danach neu einloggen
-systemctl --user enable --now ydotoold 2>/dev/null || ydotoold &
+ydotoold &
 ```
 
 ### Assets
