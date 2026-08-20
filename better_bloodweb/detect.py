@@ -161,10 +161,14 @@ class Detector:
     def _classify_cnn(self, crop_bgr: np.ndarray) -> tuple[str, float]:
         import torch
 
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from tools.train_classifier import normalize
+
         gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        gray = cv2.resize(gray, (CNN_INPUT, CNN_INPUT)).astype(np.float32) / 255.0
+        gray = cv2.resize(gray, (CNN_INPUT, CNN_INPUT))
+        norm = normalize(gray)
         with torch.no_grad():
-            out = self._cnn(torch.from_numpy(gray[None, None]))
+            out = self._cnn(torch.from_numpy(norm[None, None]))
             probs = torch.softmax(out, dim=1)[0]
         conf, idx = float(probs.max()), int(probs.argmax())
         if conf < self.CNN_CONFIDENCE_FLOOR:
