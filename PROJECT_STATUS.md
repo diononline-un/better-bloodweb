@@ -1,19 +1,19 @@
 ---
 status: in-development
-progress: 10
+progress: 60
 version: "0.0.1"
 tags: [python, linux, wayland, opencv, pyqt6, dead-by-daylight, automation]
-scope: "Linux/Wayland-nativer Bloodweb-Prioritizer für Dead by Daylight: Screenshot + Icon-Erkennung + Klick-Automation, preference profiles pro Charakter, kein Prozess-Zugriff"
+scope: "Linux/Wayland-nativer Bloodweb-Prioritizer für Dead by Daylight: Screenshot + CNN-Icon-Erkennung + Klick-Automation, Preference-Profile pro Charakter, kein Prozess-Zugriff"
 last_updated: "2026-08-20"
 next_steps:
-  - Core-Module fertigstellen (capture/control/detect/graph/profiles)
-  - GUI (PyQt6): Profil-Editor, Tier-Slider, Run-Panel, Kalibrier-Assistent
-  - Icon-Assets integrieren + update-assets.sh
-  - ydotool-Setup dokumentieren (sudo, input-Gruppe)
-  - Kalibrierung + Testlauf am echten Bloodweb
+  - ydotool installieren (sudo nötig, User-Aufgabe — siehe README)
+  - Kalibrierung am echten Bloodweb + Testlauf mit kleinem BP-Limit
+  - Real-Screenshot gegen Detector verifizieren (bisher nur synthetisch evaluiert)
+  - PR #1 mergen nach Review
 ---
 
 # Aktueller Stand
-- Repo initialisiert, venv mit opencv/numpy/pyyaml/networkx/PyQt6/mss auf Python 3.14 verifiziert
-- Konzept: pixel-basiert (spectacle/grim/mss), Input via ydotool/pyautogui — kein Memory-/Prozess-Zugriff
-- Inspiriert von IIInitiationnn/BloodEmporium (Windows-only), Credits in README
+- MVP steht: PyQt6-GUI (Run/Profile/Kalibrierung), YAML-Profile, Capture-Backends (spectacle/grim/mss), Input (ydotool/pyautogui), Runner mit click-and-verify
+- CNN-Klassifikator (torch CPU, 1371 Klassen): val-acc 99.6%, held-out 92% — Template Matching nur Fallback
+- 1371 Icons aus BloodEmporium gespiegelt (update-assets.sh), Credits in README
+- Repo: github.com/diononline-un/better-bloodweb, PR #1 offen
